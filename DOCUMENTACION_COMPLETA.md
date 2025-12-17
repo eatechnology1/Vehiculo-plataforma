@@ -13,7 +13,7 @@
 
 ---
 
-## 1. Arquitectura General del Sistema {#arquitectura-general}
+## 1. Arquitectura General del Sistema
 
 ### Descripción General
 Este proyecto implementa un robot móvil diferencial controlado por microcontrolador ESP32-S3. El sistema está diseñado para ser controlado remotamente vía WiFi mediante comandos UDP, integrando sensores de posición (encoders) para odometría y control de motores para navegación.
@@ -33,7 +33,7 @@ Este proyecto implementa un robot móvil diferencial controlado por microcontrol
 
 ---
 
-## 2. Componentes Hardware {#componentes-hardware}
+## 2. Componentes Hardware 
 
 ### 2.1 Microcontrolador ESP32-S3
 - **Modelo**: ESP32-S3-WROOM-1
@@ -73,7 +73,7 @@ Este proyecto implementa un robot móvil diferencial controlado por microcontrol
 
 ---
 
-## 3. Arquitectura Software {#arquitectura-software}
+## 3. Arquitectura Software 
 
 ### 3.1 Estructura de Módulos
 
@@ -156,7 +156,7 @@ Este proyecto implementa un robot móvil diferencial controlado por microcontrol
 
 ---
 
-## 4. Flujo de Datos {#flujo-de-datos}
+## 4. Flujo de Datos 
 
 ### 4.1 Secuencia de Operaciones
 
@@ -231,7 +231,7 @@ Este proyecto implementa un robot móvil diferencial controlado por microcontrol
 
 ---
 
-## 5. Configuración del Sistema {#configuración}
+## 5. Configuración del Sistema 
 
 ### 5.1 Parámetros de Red WiFi
 
@@ -272,7 +272,7 @@ Este proyecto implementa un robot móvil diferencial controlado por microcontrol
 
 ---
 
-## 6. Protocolo de Comunicación {#protocolo-comunicación}
+## 6. Protocolo de Comunicación 
 
 ### 6.1 Formato de Mensaje
 
@@ -321,7 +321,7 @@ sock.sendto(message.encode(), (ESP32_IP, UDP_PORT))
 
 ---
 
-## 7. Seguridad y Robustez {#seguridad}
+## 7. Seguridad y Robustez 
 
 ### 7.1 Mecanismos de Seguridad
 
@@ -366,7 +366,7 @@ sock.sendto(message.encode(), (ESP32_IP, UDP_PORT))
 
 ---
 
-## 8. Calibración y Optimización {#calibración}
+## 8. Calibración y Optimización 
 
 ### 8.1 Calibración de Parámetros
 
@@ -415,7 +415,7 @@ PID pidRight(0.5f, 0.1f, 0.05f);  // Motor derecho
 
 ---
 
-## 9. Troubleshooting {#troubleshooting}
+## 9. Troubleshooting
 
 ### 9.1 Problemas de Conexión WiFi
 
@@ -522,6 +522,6 @@ Para soporte técnico adicional o consultas sobre implementación, consulte los 
 
 ---
 
-**Fecha de Documentación**: Diciembre 2024  
+**Fecha de Documentación**: Diciembre 2025  
 **Versión del Sistema**: 1.0  
-**Autor**: Sistema de Documentación Automática
+**Autor**: Alexander Calderon - EA Technology (eatechnology1)  
