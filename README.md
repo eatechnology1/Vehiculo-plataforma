@@ -39,16 +39,16 @@ TRACK_WIDTH = 0.132m, WHEEL_RADIUS = 0.026m [file:48]
 
 ## ⚙️ Software
 
-**Frecuencia control**: 100Hz (\( \Delta t = 10ms \))[1]
+**Frecuencia control**: 100Hz (\( \Delta t = 10ms \))
 
 ### Módulos principales
 | Módulo | Función | Fichero |
 |--------|---------|---------|
-| **MotorManager** | TB6612FNG x3 (u∈[-1,1]) | motor_driver.h [4] |
-| **EncoderManager** | 5 encoders cuadratura | encoder.h [5] |
-| **Kinematics** | Odometría Euler | kinematics.h [3] |
-| **PID** | Control velocidad (anti-windup) | pid.h [6] |
-| **WifiComm** | UDP "v:0.3,w:-0.5" | wifi_comm.h [7] |
+| **MotorManager** | TB6612FNG x3 (u∈[-1,1]) | motor_driver.h  |
+| **EncoderManager** | 5 encoders cuadratura | encoder.h  |
+| **Kinematics** | Odometría Euler | kinematics.h  |
+| **PID** | Control velocidad (anti-windup) | pid.h  |
+| **WifiComm** | UDP "v:0.3,w:-0.5" | wifi_comm.h  |
 
 ### Protocolo UDP
 ```
@@ -125,9 +125,9 @@ echo "v:0.3,w:0.0" | nc -u IP_ESP32 8888
 
 ## 📚 Referencias
 
-1. Cinemática diferencial: \( v = 0.5(v_R + v_L), w = \frac{v_R - v_L}{L} \)[3]
-2. Control PID: Anti-windup clamping[6]
-3. TB6612FNG: PWM 20kHz, 8-bit[4]
+1. Cinemática diferencial: \( v = 0.5(v_R + v_L), w = \frac{v_R - v_L}{L} \)
+2. Control PID: Anti-windup clamping
+3. TB6612FNG: PWM 20kHz, 8-bit
 
 **Autor**: Alexander Calderon - EA Technology (eatechnology1)  
 **v1.0**: Diciembre 2025
