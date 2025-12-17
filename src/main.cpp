@@ -6,7 +6,7 @@
  *   Recibe comandos de velocidad lineal (v) y angular (w) vía UDP, calcula
  *   consigna de velocidad angular para cada rueda mediante cinemática inversa,
  *   normaliza la señal para mandarla a los drivers de motor y actualiza
- *   odometría a partir de los encoders. Ejecuta un bucle de control periódico
+ *   odometría a partir de los encoders. Ejecuta un bucle de control periódicot
  *   a 100 Hz y dispone de timeout de seguridad para detener el robot.
  *
  * Dependencias externas (ficheros incluidos):
