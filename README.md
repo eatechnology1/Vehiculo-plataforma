@@ -1,6 +1,6 @@
 # 🚗 Plataforma Robótica ESP32-S3
 
-**Plataforma móvil diferencial** con **odometría por encoders**, **control UDP WiFi** y **arquitectura modular**. Desarrollada para **Diseño Mecatrónico II 2025-2**.[1][2]
+**Plataforma móvil diferencial** con **odometría por encoders**, **control UDP WiFi** y **arquitectura modular**. Desarrollada para **Diseño Mecatrónico II 2025-2**.
 
 ## 🏗️ Arquitectura del sistema
 
@@ -12,7 +12,7 @@
                                                     [Odometría Euler] → x,y,θ
 ```
 
-**Cinemática diferencial**:[3]
+**Cinemática diferencial**:
 ```
 ωL = (v - 0.5×w×TRACK_WIDTH) / WHEEL_RADIUS = 0.51 rad/s
 ωR = (v + 0.5×w×TRACK_WIDTH) / WHEEL_RADIUS = 0.77 rad/s
@@ -22,7 +22,7 @@ TRACK_WIDTH = 0.132m, WHEEL_RADIUS = 0.026m [file:48]
 
 ## 🖥️ Hardware
 
-### Pines críticos[2]
+### Pines críticos
 | Función | GPIO | Canal PWM |
 |---------|------|-----------|
 | **Motor Izq** | PWM_L=9, IN1_L=11, IN2_L=10 | CH0 |
@@ -35,7 +35,7 @@ TRACK_WIDTH = 0.132m, WHEEL_RADIUS = 0.026m [file:48]
 - Derecha: ENC_R1(2,42), ENC_R2(39,38)
 - Plataforma: ENC_P(37,36)
 
-**PWM**: 20kHz, 8-bit (0-255)[4]
+**PWM**: 20kHz, 8-bit (0-255)
 
 ## ⚙️ Software
 
@@ -50,7 +50,7 @@ TRACK_WIDTH = 0.132m, WHEEL_RADIUS = 0.026m [file:48]
 | **PID** | Control velocidad (anti-windup) | pid.h [6] |
 | **WifiComm** | UDP "v:0.3,w:-0.5" | wifi_comm.h [7] |
 
-### Protocolo UDP[7][1]
+### Protocolo UDP
 ```
 Formato: "v:0.30,w:-0.50"
 Puerto: 8888
@@ -89,7 +89,7 @@ IP: Ver Serial Monitor (115200 baud)
 [ODO] x=0.234 y=0.156 θ=1.23 | v=0.32 w=-0.45
 ```
 
-## 🧮 Algoritmo principal[1]
+## 🧮 Algoritmo principal
 
 ```cpp
 // Bucle 100Hz
@@ -130,4 +130,4 @@ echo "v:0.3,w:0.0" | nc -u IP_ESP32 8888
 3. TB6612FNG: PWM 20kHz, 8-bit[4]
 
 **Autor**: Alexander Calderon - EA Technology (eatechnology1)  
-**v1.0**: Diciembre 2025[8][2][1]
+**v1.0**: Diciembre 2025
