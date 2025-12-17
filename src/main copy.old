@@ -1,0 +1,266 @@
+/*
+ * main.cpp
+ *
+ * Descripción general:
+ *   Programa principal para controlar un robot móvil diferencial basado en ESP32-S3.
+ *   Recibe comandos de velocidad lineal (v) y angular (w) vía UDP, calcula
+ *   consigna de velocidad angular para cada rueda mediante cinemática inversa,
+ *   normaliza la señal para mandarla a los drivers de motor y actualiza
+ *   odometría a partir de los encoders. Ejecuta un bucle de control periódico
+ *   a 100 Hz y dispone de timeout de seguridad para detener el robot.
+ *
+ * Dependencias externas (ficheros incluidos):
+ *   - Arduino.h, WiFi.h, WiFiUdp.h : APIs de Arduino/ESP32 y UDP.
+ *   - config.h : constantes de configuración (WIFI_SSID, WIFI_PASSWORD, UDP_PORT,
+ *                V_MAX, W_MAX, TRACK_WIDTH, WHEEL_RADIUS, CMD_TIMEOUT_MS, ...).
+ *   - encoder.h : definición de EncoderManager (lectura/actualización de encoders).
+ *   - motor_driver.h : definición de MotorManager (interfaz para comandos a motores).
+ *   - kinematics.h : clase Kinematics (odometría, estado pose y velocidades).
+ *
+ * Objetos principales:
+ *   - EncoderManager encoders: gestor de encoders de las ruedas.
+ *   - MotorManager motors: gestor / driver de los motores.
+ *   - Kinematics kine: módulo de odometría (x, y, theta, v, w).
+ *   - WiFiUDP udp: objeto para recibir paquetes UDP con comandos.
+ *
+ * Variables de control y estado:
+ *   - float v_cmd, w_cmd      : consigna recibida vía UDP (v en m/s, w en rad/s).
+ *   - float omegaL_ref, omegaR_ref : consigna angular para rueda izquierda/derecha (rad/s).
+ *   - float omegaL_meas, omegaR_meas : velocidades angulares medidas por encoder (rad/s).
+ *   - uint32_t lastCmdTime    : timestamp (ms) de la última recepción de comando.
+ *   - uint32_t lastLoopMicros : timestamp (us) de la última iteración del bucle de control.
+ *   - const uint32_t LOOP_PERIOD_US : periodo del bucle en microsegundos (10000 us -> 100 Hz).
+ *
+ * Redes / protocolo UDP:
+ *   - La placa se conecta como cliente WiFi (WIFI_STA) con credenciales definidas en config.h.
+ *   - Se abre un socket UDP y se escuchan paquetes en UDP_PORT.
+ *   - Formato de comando esperado por UDP: texto "v,w" donde v y w son floats ASCII
+ *     separados por coma (ej. "0.25,0.5").
+ *   - Tamaño de buffer de recepción: 64 bytes. Se utiliza sscanf para parsear.
+ *   - Al recibir comando válido:
+ *       * v_cmd se limita a [-V_MAX, V_MAX]
+ *       * w_cmd se limita a [-W_MAX, W_MAX]
+ *       * lastCmdTime actualizado
+ *
+ * Seguridad y robustez:
+ *   - Timeout de seguridad: si transcurren más de CMD_TIMEOUT_MS ms desde el último comando,
+ *     las consignas v_cmd y w_cmd se ponen a cero (parada).
+ *   - El buffer de recepción es estático de 64 bytes: asegurarse de que mensajes UDP no excedan
+ *     ese tamaño para evitar truncamiento. sscanf se usa sin validación adicional de longitud.
+ *
+ * Flujo del bucle principal (loop) — ejecutado periódicamente a 100 Hz:
+ *   1) receiveCommand(): procesa paquetes UDP disponibles y actualiza v_cmd/w_cmd.
+ *   2) Safety timeout: si no hay comandos recientes, poner consigna a 0.
+ *   3) Temporización: la ejecución del bloque de control se regula con micros() y
+ *      LOOP_PERIOD_US para mantener ~100 Hz.
+ *   4) Lectura de encoders:
+ *        encoders.update();
+ *        omegaL_meas = encoders.omegaLeft();
+ *        omegaR_meas = encoders.omegaRight();
+ *   5) Odometría:
+ *        kine.update(omegaL_meas, omegaR_meas);
+ *      Actualiza pose (x, y, theta) y velocidades estimadas (v, w).
+ *   6) Cinemática inversa:
+ *        omegaL_ref = (v_cmd - 0.5f * w_cmd * TRACK_WIDTH) / WHEEL_RADIUS;
+ *        omegaR_ref = (v_cmd + 0.5f * w_cmd * TRACK_WIDTH) / WHEEL_RADIUS;
+ *      Un modelo diferencial simple donde TRACK_WIDTH es la distancia entre ruedas.
+ *   7) Normalización y envío a los motores (sin lazo PID):
+ *        - Calcula omegaMax = V_MAX / WHEEL_RADIUS (vel angular máxima basada en V_MAX).
+ *        - Calcula mandos normalizados uL = omegaL_ref / omegaMax, uR = omegaR_ref / omegaMax.
+ *        - Constrain entre [-1, 1] y pasar a motors.setLeft(uL), motors.setRight(uR).
+ *
+ * Salida de depuración (Serial):
+ *   - Cada 500 ms se imprimen:
+ *       * [MEAS] ωL=... ωR=... | uL=... uR=...
+ *       * [ODO] x=... y=... θ=... | v=... w=...
+ *   - Permite monitorizar lecturas de encoders, mandos normalizados y estado de odometría.
+ *
+ * Supuestos y unidades:
+ *   - v (m/s), w (rad/s).
+ *   - TRACK_WIDTH en metros, WHEEL_RADIUS en metros.
+ *   - V_MAX en m/s (velocidad lineal máxima utilizada para normalización).
+ *
+ * Posibles mejoras / notas:
+ *   - Añadir comprobaciones y protección frente a paquetes UDP malformados o lecturas parciales.
+ *   - Implementar un controlador de velocidad (PID) por rueda en lugar de normalización directa
+ *     para mejorar seguimiento de consigna y compensar dinámicas del motor/variaciones de carga.
+ *   - Registrar timestamps y/o realizar filtrado de mediciones de encoder si hay ruido.
+ *   - Considerar uso de autenticación / cifrado en la capa de comando UDP si se usa en redes no confiables.
+ *   - Permitir tuning de la frecuencia de control y del periodo LOOP_PERIOD_US desde config.h.
+ *
+ * Inicialización (setup):
+ *   - Serial a 115200 baud.
+ *   - Inicializa encoders, drivers de motor y kinematics mediante sus respectivos begin().
+ *   - Conecta a WiFi y comienza a escuchar UDP en el puerto configurado.
+ *   - Inicializa timers (lastLoopMicros, lastCmdTime).
+ *
+ * Observaciones de implementación:
+ *   - El código es deliberadamente simple y está pensado como base educativa/prototipo.
+ *   - Documentación y nombres de variables están en español, adaptar según convenga.
+ */
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include "config.h"
+#include "encoder.h"
+#include "motor_driver.h"
+#include "kinematics.h"
+
+// ======================================================
+// ================== OBJETOS ===========================
+// ======================================================
+
+EncoderManager encoders;
+MotorManager motors;
+Kinematics kine;
+
+WiFiUDP udp;
+
+// ======================================================
+// ================== VARIABLES =========================
+// ======================================================
+
+float v_cmd = 0.0f;     // [m/s]
+float w_cmd = 0.0f;     // [rad/s]
+
+float omegaL_ref = 0.0f;
+float omegaR_ref = 0.0f;
+
+float omegaL_meas = 0.0f;
+float omegaR_meas = 0.0f;
+
+uint32_t lastCmdTime = 0;
+
+// Comandos de alto nivel (objetivo en el mundo)
+float x_ref = 0.0f;   // [m]
+float y_ref = 0.0f;   // [m]
+float v_ref = 0.0f;   // [m/s] velocidad lineal deseada hacia el objetivo
+
+
+// Control loop
+uint32_t lastLoopMicros = 0;
+const uint32_t LOOP_PERIOD_US = 10000; // 100 Hz
+
+// ======================================================
+// ================== WIFI ==============================
+// ======================================================
+
+void setupWiFi() {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    Serial.print("[WiFi] Conectando");
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println("\n[WiFi] Conectado");
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
+
+    udp.begin(UDP_PORT);
+    Serial.print("[WiFi] UDP escuchando en puerto ");
+    Serial.println(UDP_PORT);
+}
+
+void receiveCommand() {
+    int packetSize = udp.parsePacket();
+    if (packetSize <= 0) return;
+
+    char buffer[64];
+    int len = udp.read(buffer, sizeof(buffer) - 1);
+    buffer[len] = '\0';
+
+    // Formato: v,w
+    if (sscanf(buffer, "%f,%f", &v_cmd, &w_cmd) == 2) {
+        v_cmd = constrain(v_cmd, -V_MAX, V_MAX);
+        w_cmd = constrain(w_cmd, -W_MAX, W_MAX);
+        lastCmdTime = millis();
+
+        Serial.printf("[CMD] v=%.2f  w=%.2f\n", v_cmd, w_cmd);
+    }
+}
+
+// ======================================================
+// ================== SETUP =============================
+// ======================================================
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    Serial.println("\n=== ESP32-S3 ROBOT MOVIL ===");
+
+    encoders.begin();
+    motors.begin();
+    kine.begin();
+
+    setupWiFi();
+
+    lastLoopMicros = micros();
+    lastCmdTime = millis();
+}
+
+// ======================================================
+// ================== LOOP ==============================
+// ======================================================
+
+void loop() {
+
+    // ---------------- WiFi ----------------------------
+    receiveCommand();
+
+    // Seguridad: timeout
+    if (millis() - lastCmdTime > CMD_TIMEOUT_MS) {
+        v_cmd = 0.0f;
+        w_cmd = 0.0f;
+    }
+
+    // ---------------- Control Loop --------------------
+    uint32_t now = micros();
+    if (now - lastLoopMicros < LOOP_PERIOD_US) return;
+    lastLoopMicros = now;
+
+    // 1. Encoders
+    encoders.update();
+    omegaL_meas = encoders.omegaLeft();
+    omegaR_meas = encoders.omegaRight();
+
+    // 2. Odometría
+    kine.update(omegaL_meas, omegaR_meas);
+
+    // 3. Cinemática inversa (en main)
+    omegaL_ref = (v_cmd - 0.5f * w_cmd * TRACK_WIDTH) / WHEEL_RADIUS;
+    omegaR_ref = (v_cmd + 0.5f * w_cmd * TRACK_WIDTH) / WHEEL_RADIUS;
+
+    // 4. Normalización directa (SIN PID)
+    float omegaMax = V_MAX / WHEEL_RADIUS;
+
+    float uL = omegaL_ref / omegaMax;
+    float uR = omegaR_ref / omegaMax;
+
+    uL = constrain(uL, -1.0f, 1.0f);
+    uR = constrain(uR, -1.0f, 1.0f);
+
+    motors.setLeft(uL);
+    motors.setRight(uR);
+
+    // ---------------- Debug ---------------------------
+    static uint32_t lastPrint = 0;
+    if (millis() - lastPrint > 500) {
+        lastPrint = millis();
+
+        Serial.printf(
+            "[MEAS] ωL=%.3f  ωR=%.3f | uL=%.2f uR=%.2f\n",
+            omegaL_meas, omegaR_meas, uL, uR
+        );
+
+        Serial.printf(
+            "[ODO] x=%.3f y=%.3f θ=%.3f | v=%.2f w=%.2f\n",
+            kine.getX(), kine.getY(), kine.getTheta(),
+            kine.getV(), kine.getW()
+        );
+    }
+}
